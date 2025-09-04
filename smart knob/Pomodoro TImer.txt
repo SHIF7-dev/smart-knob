@@ -1,0 +1,5 @@
+pin connections:
+neopixel: DIN=A3, VCC=5V 4 pin 
+OLED module: I2C, ssd1306, VCC=3.3V, SCL=A5, SDA=A4 
+ky-040 encoder: CLK=D2, DT=D3, SW=D4, VCC=5V (same pin as neopixel 5V on nano) 
+All GND pins on each component are connected to the same GND.1 pin on the nano.
