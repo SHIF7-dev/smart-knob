@@ -15,18 +15,24 @@
       "type": "board-ssd1306",
       "id": "oled1",
       "top": 166.34,
-      "left": -18.97,
+      "left": -28.57,
       "attrs": { "i2cAddress": "0x3c" }
-    }
+    },
+    { "type": "wokwi-ky-040", "id": "encoder1", "top": 68.9, "left": -375.2, "attrs": {} }
   ],
   "connections": [
     [ "ring1:GND", "nano:GND.1", "black", [ "v0" ] ],
     [ "ring1:VCC", "nano:5V", "red", [ "v38.4", "h-192" ] ],
-    [ "ring1:DIN", "nano:4", "green", [ "v9.47", "h-110.46", "v-57.47", "h-119.94" ] ],
     [ "oled1:GND", "nano:GND.1", "black", [ "v-28.8", "h0" ] ],
     [ "oled1:VCC", "nano:5V", "red", [ "v-57.6", "h-38.25" ] ],
-    [ "nano:A5", "oled1:SCL", "green", [ "v57.6", "h76.5" ] ],
-    [ "oled1:SDA", "nano:A4", "green", [ "v-38.4", "h0.07" ] ]
+    [ "oled1:SDA", "nano:A4", "blue", [ "v-19.2", "h-86.33" ] ],
+    [ "ring1:DIN", "nano:2", "green", [ "v19.2", "h-144", "v-76.8", "h-67.2" ] ],
+    [ "encoder1:GND", "nano:GND.1", "black", [ "v77.6", "h182.4", "v-67.2", "h86.4" ] ],
+    [ "encoder1:VCC", "nano:5V", "red", [ "h9.6", "v77.2", "h163.2", "v-67.2", "h76.8" ] ],
+    [ "encoder1:SW", "nano:3", "gold", [ "h96", "v-86.3", "h134.4" ] ],
+    [ "encoder1:DT", "nano:4", "gold", [ "h86.4", "v-86.3", "h134.4" ] ],
+    [ "encoder1:CLK", "nano:5", "gold", [ "h76.8", "v-86.4", "h134.4" ] ],
+    [ "oled1:SCL", "nano:A5", "blue", [ "v-28.8", "h0.3" ] ]
   ],
   "dependencies": {}
 }
