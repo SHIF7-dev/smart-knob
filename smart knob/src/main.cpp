@@ -189,34 +189,28 @@ void setup() {
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3c);
 }
 
-int frame = 0;
 void loop() {
   // put your main code here, to run repeatedly:
   //idle_screen();
   //oled.display();
   
   //idle_state();
-
   
-  int temp_study_time = study_time;
-  //while(temp_study_time>0){
-  NeoPixel.clear();
-  int pixels_to_show= floor(temp_study_time/STUDY_PIXELS_PER_MINS);
-  pixels_to_show%=NUM_PIXELS+1;
-  for (int pixel =0; pixel<pixels_to_show; pixel++){
-    NeoPixel.setPixelColor(pixel, NeoPixel.Color(225, 25, 25));}
-  NeoPixel.show();
-
-  oled.clearDisplay();
-  oled.drawBitmap(40, 8, study_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-  oled.display();
-  //frame = (frame + 1) % STUDY_FRAME_COUNT;
-  delay(FRAME_DELAY);
-
-  delay(1000*STUDY_PIXELS_PER_MINS);
-  temp_study_time=temp_study_time-STUDY_PIXELS_PER_MINS;
-  //}
-
-  
+  if(cycle>0){
+    
+    if (cycle==1){
+      study_state();
+      cycle--;
+    }
+    else{
+      study_state();
+      break_timer();
+      cycle--;
+    }
+  }
+  else{
+    NeoPixel.clear();
+    NeoPixel.show();
+  }
 
 }
