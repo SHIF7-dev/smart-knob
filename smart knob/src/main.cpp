@@ -15,6 +15,7 @@ enum State {
   STATE_STUDY,
   STATE_BREAK
 };
+
 State currentState = STATE_IDLE;
 
 //neopixel definitions
@@ -39,10 +40,9 @@ State currentState = STATE_IDLE;
 
 Adafruit_NeoPixel NeoPixel(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800); //neopixel instance
 
-int study_time = MIN_STUDY_TIME; //will be in minutes. Need to take input from user. 
+volatile int study_time = MIN_STUDY_TIME; //will be in minutes. Need to take input from user. 
 int break_time = MIN_BREAK_TIME;
 int cycle = 2;
-int state=0;
 
 //oled module definitions
 #define SCREEN_WIDTH 128
@@ -60,9 +60,10 @@ RTC_DS1307 rtc;
 #define ENCODER_CLK 2 // for encoder CLK pin
 #define ENCODER_DT  3 //for encoder DT pin
 #define ENCODER_BUTTON 4 // for encoder SW pin
-int lastClk = HIGH;
-long lastPos = 0;
-Encoder knob(ENCODER_DT, ENCODER_CLK );
+
+
+volatile int CLKstate;
+volatile int lastCLKstate;
 
 
 //idle animation
@@ -110,14 +111,56 @@ void idle_state(){
   delay(FRAME_DELAY);
   }
 
+void updateEncoder() {
+
+  CLKstate = digitalRead(ENCODER_CLK);
+
+  if (CLKstate != lastCLKstate) {
+    lastCLKstate = CLKstate;
+    byte data = digitalRead(ENCODER_DT);
+    if (!data && CLKstate == LOW) {
+      if (currentState==STATE_CONFIG_STUDY && study_time>=(MIN_STUDY_TIME+STUDY_PIXELS_PER_MINS)){
+        study_time = study_time - STUDY_PIXELS_PER_MINS; //counterclockwise
+        Serial.println(-STUDY_PIXELS_PER_MINS);
+        Serial.println("Study Time: ");
+        Serial.println(study_time);}
+      else if (currentState==STATE_CONFIG_BREAK && break_time>=(MIN_BREAK_TIME+BREAK_PIXELS_PER_MINS)){
+        break_time = break_time - BREAK_PIXELS_PER_MINS; //counterclockwise
+        Serial.println(-BREAK_PIXELS_PER_MINS);
+        Serial.println("Break Time: ");
+        Serial.println(break_time);}
+      else if (currentState==STATE_CONFIG_CYCLE && cycle>=(MIN_CYCLE_TIME+CYCLE_PIXELS_PER_MINS)){
+        cycle = cycle - CYCLE_PIXELS_PER_MINS; //counterclockwise
+        Serial.println(-CYCLE_PIXELS_PER_MINS);
+        Serial.println("Cycles: ");
+        Serial.println(cycle);}
+      }
 
 
-void config_study_state() {
-    static int pixels_to_show = -1;
-    static long lastPos = -1;
+     else if (data && CLKstate == LOW)  {
+      if (currentState==STATE_CONFIG_STUDY && study_time<=(MAX_STUDY_TIME-STUDY_PIXELS_PER_MINS)){
+        study_time = study_time + STUDY_PIXELS_PER_MINS; //clockwise
+        Serial.println(STUDY_PIXELS_PER_MINS);
+        Serial.println("Study_Time");
+        Serial.println(study_time);}
+      else if (currentState==STATE_CONFIG_BREAK && break_time<=(MAX_BREAK_TIME-BREAK_PIXELS_PER_MINS)){
+        break_time = break_time + BREAK_PIXELS_PER_MINS; //clockwise
+        Serial.println(BREAK_PIXELS_PER_MINS);
+        Serial.println("Break_Time");
+        Serial.println(break_time);}
+      else if (currentState==STATE_CONFIG_CYCLE && cycle<=(MAX_CYCLE_TIME-CYCLE_PIXELS_PER_MINS)){
+        cycle = cycle + 1; //clockwise
+        Serial.println(CYCLE_PIXELS_PER_MINS);
+        Serial.println("Cycles: ");
+        Serial.println(cycle);}
+      }
+    }
+    }
 
-    
-    if (pixels_to_show == -1) {
+void config_study_state(){
+  static int pixels_to_show = -1;
+
+  if (pixels_to_show == -1) {
         NeoPixel.clear();
         pixels_to_show = floor(study_time / STUDY_PIXELS_PER_MINS) - 1;
         Serial.println("pixels to show: ");
@@ -127,44 +170,50 @@ void config_study_state() {
             NeoPixel.show();
             delay(200); 
         }
+        oled.clearDisplay();
+        oled.setCursor(0,0);
+        oled.setTextSize(1);
+        oled.setTextColor(WHITE);
+        oled.print("Study Time: ");
+        oled.print(study_time);
+        oled.display();
     }
+  
+  //check if one more pixel has been added : means time increased.
+  else if ((floor(study_time / STUDY_PIXELS_PER_MINS)-1)-pixels_to_show==1){
+      pixels_to_show++;
+      NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
+      NeoPixel.show();
 
-    
-    long newPos = knob.read() / 4; // 1 click per detent
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE);
+      oled.print("Study Time: ");
+      oled.print(study_time);
+      oled.display();
+  }
 
-    if (lastPos==-1){
-      lastPos=newPos;
-    }
+  else if ((floor(study_time / STUDY_PIXELS_PER_MINS)-1)-pixels_to_show==-1){
+      NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
+      pixels_to_show--;
+      NeoPixel.show();
 
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE);
+      oled.print("Study Time: ");
+      oled.print(study_time);
+      oled.display();
+  }
 
-    if (newPos != lastPos) {
-        if (newPos > lastPos && study_time < MAX_STUDY_TIME) {
-            Serial.println("+5 min");
-            study_time += STUDY_PIXELS_PER_MINS;
-            Serial.println(study_time);
-            pixels_to_show++;
-            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
-            NeoPixel.show();
-        } else if (newPos < lastPos && study_time > MIN_STUDY_TIME) {
-            Serial.println("-5 min");
-            study_time -= STUDY_PIXELS_PER_MINS;
-            Serial.println(study_time);
-            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
-            pixels_to_show--;
-            NeoPixel.show();
-        }
-        lastPos = newPos;
-    }
 }
 
+void config_break_state(){
+  static int pixels_to_show = -1;
 
-
-void config_break_state() {
-    static int pixels_to_show = -1;
-    static long lastPos = -1;
-
-    
-    if (pixels_to_show == -1) {
+  if (pixels_to_show == -1) {
         NeoPixel.clear();
         pixels_to_show = floor(break_time / BREAK_PIXELS_PER_MINS) - 1;
         Serial.println("pixels to show: ");
@@ -174,42 +223,50 @@ void config_break_state() {
             NeoPixel.show();
             delay(200); 
         }
+        oled.clearDisplay();
+        oled.setCursor(0,0);
+        oled.setTextSize(1);
+        oled.setTextColor(WHITE);
+        oled.print("Break Time: ");
+        oled.print(break_time);
+        oled.display();
     }
+  
+  //check if one more pixel has been added : means time increased.
+  else if ((floor(break_time / BREAK_PIXELS_PER_MINS)-1)-pixels_to_show==1){
+      pixels_to_show++;
+      NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(BREAK_ADDITIONAL_TIME));
+      NeoPixel.show();
 
-    
-    long newPos = knob.read() / 4; // 1 click per detent
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE);
+      oled.print("Break Time: ");
+      oled.print(break_time);
+      oled.display();
+  }
 
-    if (lastPos==-1){
-      lastPos=newPos;
-    }
+  else if ((floor(break_time / BREAK_PIXELS_PER_MINS)-1)-pixels_to_show==-1){
+      NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
+      pixels_to_show--;
+      NeoPixel.show();
 
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE);
+      oled.print("Break Time: ");
+      oled.print(break_time);
+      oled.display();
+  }
 
-    if (newPos != lastPos) {
-        if (newPos > lastPos && break_time < MAX_BREAK_TIME) {
-            Serial.println("+1 min");
-            break_time += BREAK_PIXELS_PER_MINS;
-            Serial.println(break_time);
-            pixels_to_show++;
-            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(BREAK_ADDITIONAL_TIME));
-            NeoPixel.show();
-        } else if (newPos < lastPos && break_time > MIN_BREAK_TIME) {
-            Serial.println("-1 min");
-            break_time -= BREAK_PIXELS_PER_MINS;
-            Serial.println(break_time);
-            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
-            pixels_to_show--;
-            NeoPixel.show();
-        }
-        lastPos = newPos;
-    }
 }
 
 void config_cycle_state(){
-    static int pixels_to_show = -1;
-    static long lastPos = -1;
+  static int pixels_to_show = -1;
 
-    
-    if (pixels_to_show == -1) {
+  if (pixels_to_show == -1) {
         NeoPixel.clear();
         pixels_to_show = floor(cycle / CYCLE_PIXELS_PER_MINS) - 1;
         Serial.println("pixels to show: ");
@@ -219,32 +276,46 @@ void config_cycle_state(){
             NeoPixel.show();
             delay(200); 
         }
+        oled.clearDisplay();
+        oled.setCursor(0,0);
+        oled.setTextSize(1);
+        oled.setTextColor(WHITE);
+        oled.print("Cycles: ");
+        oled.print(cycle);
+        oled.display();
     }
+  
+  //check if one more pixel has been added : means time increased.
+  else if ((floor(cycle / CYCLE_PIXELS_PER_MINS)-1)-pixels_to_show==1){
+      pixels_to_show++;
+      NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(CYCLE_ADDITIONAL_TIME));
+      NeoPixel.show();
 
-    
-    long newPos = knob.read() / 4; // 1 click per detent
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE);
+      oled.print("Cycles: ");
+      oled.print(cycle);
+      oled.display();
+  }
 
-    if (lastPos==-1){
-      lastPos=newPos;
-    }
+  else if ((floor(cycle / CYCLE_PIXELS_PER_MINS)-1)-pixels_to_show==-1){
+      NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
+      pixels_to_show--;
+      NeoPixel.show();
 
-    if (newPos != lastPos) {
-        if (newPos > lastPos && cycle < MAX_CYCLE_TIME) {
-            Serial.println("+1 min");
-            cycle += CYCLE_PIXELS_PER_MINS;
-            pixels_to_show++;
-            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(CYCLE_ADDITIONAL_TIME));
-            NeoPixel.show();
-        } else if (newPos < lastPos && cycle > MIN_CYCLE_TIME) {
-            Serial.println("-1 min");
-            cycle -= CYCLE_PIXELS_PER_MINS;
-            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
-            pixels_to_show--;
-            NeoPixel.show();
-        }
-        lastPos = newPos;
-    }
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE);
+      oled.print("Cycles: ");
+      oled.print(cycle);
+      oled.display();
+  }
+
 }
+
 
 
 void study_state() {
@@ -319,29 +390,20 @@ void break_state(){
 
 void setup() {
   Serial.begin(9600);
-  study_time%=MAX_STUDY_TIME+1; 
-  break_time%=MAX_BREAK_TIME+1;
-
-  if(study_time<MIN_STUDY_TIME){
-    study_time=MIN_STUDY_TIME;
-    if (cycle==0){
-      study_time=0;
-    }
-    else{
-      break_time=MIN_BREAK_TIME;
-    }
-  }
-  
+  lastCLKstate = digitalRead(ENCODER_CLK); 
   NeoPixel.begin();  
   Wire.begin();
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3c);
   rtc.begin();
-  pinMode(ENCODER_CLK, INPUT); 
-  pinMode(ENCODER_DT, INPUT);
+  pinMode(ENCODER_CLK, INPUT_PULLUP); 
+  pinMode(ENCODER_DT, INPUT_PULLUP);
   pinMode(ENCODER_BUTTON, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_CLK), updateEncoder, CHANGE);
 }
 
 void loop() {
+
+
   switch (currentState) {
     case STATE_IDLE:
       idle_state();
@@ -349,14 +411,14 @@ void loop() {
         currentState = STATE_CONFIG_STUDY;
         oled.clearDisplay();
         oled.display();
-        Serial.println("Exiting idle state");
+        //Serial.println("Exiting idle state");
       }
       break;
 
     case STATE_CONFIG_STUDY:
       config_study_state();
       if (button_pressed()) {
-        Serial.println("Exiting config study state");
+        //Serial.println("Exiting config study state");
         currentState = STATE_CONFIG_BREAK;  
       }
       break;
@@ -364,7 +426,7 @@ void loop() {
     case STATE_CONFIG_BREAK:
       config_break_state();  
       if (button_pressed()) {
-        Serial.println("Exiting config break state");
+        //Serial.println("Exiting config break state");
         currentState = STATE_CONFIG_CYCLE;
       }
       break;
@@ -372,7 +434,9 @@ void loop() {
     case STATE_CONFIG_CYCLE:
       config_cycle_state();  
       if (button_pressed()) {
-        Serial.println("Exiting config cycle state");
+        oled.clearDisplay();
+        oled.display();
+        //Serial.println("Exiting config cycle state");
         currentState = STATE_STUDY;
       }
       break;
