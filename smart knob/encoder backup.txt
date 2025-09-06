@@ -15,10 +15,7 @@
 #define MIN_STUDY_TIME 25
 #define MAX_BREAK_TIME 15
 #define MIN_BREAK_TIME 5
-#define STUDY_MIN_COLOR 250, 100, 0
-#define STUDY_ADDITIONAL_TIME 250, 143, 47
-#define BREAK_MIN_COLOR 0, 255, 255
-#define BREAK_ADDITIONAL_TIME 100, 250, 255
+
 
 Adafruit_NeoPixel NeoPixel(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800); //neopixel instance
 
@@ -44,9 +41,6 @@ RTC_DS1307 rtc;
 #define ENCODER_DT  4 //for encoder DT pin
 #define ENCODER_BUTTON 3 // for encoder SW pin
 int lastClk = HIGH;
-long lastPos = 0;
-Encoder knob(ENCODER_DT, ENCODER_CLK );
-
 
 //idle animation
 #define IDLE_FRAME_COUNT (sizeof(idle_frames) / sizeof(idle_frames[0]))
@@ -99,73 +93,94 @@ void idle_state(){
   }
 }
 
-
 void config_state(){
-  //for study state
-  NeoPixel.clear();
-  int pixels_to_show = floor(study_time/STUDY_PIXELS_PER_MINS)-1;  // 5 = (0->4)
-  for (int pixel = 0; pixel<=pixels_to_show; pixel++){
-    NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));
-    NeoPixel.show();
-    delay(200);}
+  //config the study timer, press button -> config the break timer pres button -> study_state.
+  int current_pixels=(study_time/STUDY_PIXELS_PER_MINS)-1; 
+  for (int pixel=0; pixel<current_pixels+1; pixel++){
+    NeoPixel.setPixelColor(pixel, NeoPixel.Color(225, 25, 25));}
+  NeoPixel.show();
   while(true){
-    long newPos = knob.read()/4;  // /4 = one "click" per detent (depends on encoder)
-    if (newPos != lastPos) {
-      if (newPos > lastPos && study_time<MAX_STUDY_TIME) {
+    oled.clearDisplay();
+    oled.setCursor(0,0);
+    oled.write("Study Timer: ");
+    oled.write(study_time);
+    oled.display();
+    int newClk = digitalRead(ENCODER_CLK);
+    if (newClk != lastClk) {
+      // There was a change on the CLK pin
+      lastClk = newClk;
+      int dtValue = digitalRead(ENCODER_DT);
+      if (newClk == LOW && dtValue == HIGH) {
+        if (study_time>=MAX_STUDY_TIME){
+          study_time=MAX_STUDY_TIME;
+          continue;
+        }
+        study_time=study_time+5;
         Serial.println("+5 mins");
-        study_time += 5;
+        current_pixels++;
+        Serial.println(current_pixels);
         Serial.println(study_time);
-        pixels_to_show++;
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
-        NeoPixel.show();
+        NeoPixel.setPixelColor(current_pixels, NeoPixel.Color(225, 25, 25));
+        NeoPixel.show();}
+      if (newClk == LOW && dtValue == LOW) {
+        if (study_time<=MIN_STUDY_TIME){
+          study_time=MIN_STUDY_TIME;
+          continue;
         }
-      else if(newPos < lastPos && study_time>MIN_STUDY_TIME) {
+        study_time=study_time-5;
         Serial.println("-5 mins");
-        study_time -= 5;
+        current_pixels--;
+        Serial.println(current_pixels);
         Serial.println(study_time);
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
-        pixels_to_show--;
-        NeoPixel.show();
-        }
-      lastPos=newPos;
+        NeoPixel.setPixelColor(current_pixels, NeoPixel.Color(0, 0, 0));
+        NeoPixel.show();}
     }
-    if(digitalRead(ENCODER_BUTTON)==LOW){
-      break;}   
+    if (digitalRead(ENCODER_BUTTON)==LOW){
+      break;
+    }
   }
-
-  //for break state
+  //config break state
   NeoPixel.clear();
-  pixels_to_show = floor(break_time/BREAK_PIXELS_PER_MINS)-1;  // 5 = (0->4)
-  for (int pixel = 0; pixel<=pixels_to_show; pixel++){
-    NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
-    NeoPixel.show();
-    delay(200);}
+  current_pixels=(break_time/BREAK_PIXELS_PER_MINS)-1; 
+  for (int pixel=0; pixel<current_pixels+1; pixel++){
+    NeoPixel.setPixelColor(pixel, NeoPixel.Color(40, 199, 162));}
+  NeoPixel.show();
   while(true){
-    long newPos = knob.read()/4;  // /4 = one "click" per detent (depends on encoder)
-    if (newPos != lastPos) {
-      if (newPos > lastPos && break_time<MAX_BREAK_TIME) {
-        Serial.println("+1 mins");
-        break_time += 1;
-        Serial.println(break_time);
-        pixels_to_show++;
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(BREAK_ADDITIONAL_TIME));
-        NeoPixel.show();
+    oled.clearDisplay();
+    oled.setCursor(0,0);
+    oled.write("Break Timer: ");
+    oled.write(break_time);
+    oled.display();
+    int newClk = digitalRead(ENCODER_CLK);
+    if (newClk != lastClk) {
+      // There was a change on the CLK pin
+      lastClk = newClk;
+      int dtValue = digitalRead(ENCODER_DT);
+      if (newClk == LOW && dtValue == HIGH) {
+        if (break_time>=MAX_BREAK_TIME){
+          break_time=MAX_BREAK_TIME;
+          continue;
         }
-      else if(newPos < lastPos && break_time>MIN_BREAK_TIME) {
-        Serial.println("-1 mins");
-        break_time -= 1;
-        Serial.println(break_time);
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
-        pixels_to_show--;
-        NeoPixel.show();
+        break_time=break_time+5;
+        Serial.println("+5 mins");
+        current_pixels++;
+        NeoPixel.setPixelColor(current_pixels, NeoPixel.Color(40, 199, 162));
+        NeoPixel.show();}
+      if (newClk == LOW && dtValue == LOW) {
+        if (break_time<=MIN_BREAK_TIME){
+          break_time=MIN_BREAK_TIME;
+          continue;
         }
-      lastPos=newPos;
+        break_time=break_time-5;
+        Serial.println("-5 mins");
+        current_pixels--;
+        NeoPixel.setPixelColor(current_pixels, NeoPixel.Color(0, 0, 0));
+        NeoPixel.show();}
     }
-    if(digitalRead(ENCODER_BUTTON)==LOW){
-      break;}   
+    if (digitalRead(ENCODER_BUTTON)==LOW){
+      break;
+    }
   }
-
-
 }
 
 
@@ -176,7 +191,7 @@ void study_state(){
     NeoPixel.clear();
     int pixels_to_show= floor(temp_study_time/STUDY_PIXELS_PER_MINS);
     for (int pixel =0; pixel<pixels_to_show; pixel++){
-      NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));}
+      NeoPixel.setPixelColor(pixel, NeoPixel.Color(225, 25, 25));}
     NeoPixel.show();
     DateTime now = rtc.now();
     long diffSeconds = now.unixtime() - last.unixtime();
@@ -194,7 +209,7 @@ void break_state(){
     NeoPixel.clear();
     int pixels_to_show= floor(temp_break_time/BREAK_PIXELS_PER_MINS);
     for (int pixel =0; pixel<pixels_to_show; pixel++){
-      NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));}
+      NeoPixel.setPixelColor(pixel, NeoPixel.Color(40, 199, 162));}
     NeoPixel.show();
     DateTime now = rtc.now();
     long diffSeconds = now.unixtime() - last.unixtime();
@@ -231,6 +246,8 @@ void setup() {
 void loop() {
   if(digitalRead(ENCODER_BUTTON)==LOW){
     idle_state();
+    NeoPixel.clear();
+    NeoPixel.show();
     config_state();
     while (cycle>0){
       study_state();
