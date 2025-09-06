@@ -27,17 +27,17 @@
     [ "oled1:GND", "nano:GND.1", "black", [ "v-28.8", "h0" ] ],
     [ "oled1:VCC", "nano:5V", "red", [ "v-57.6", "h-38.25" ] ],
     [ "oled1:SDA", "nano:A4", "blue", [ "v-19.2", "h-86.33" ] ],
-    [ "ring1:DIN", "nano:2", "green", [ "v19.2", "h-144", "v-76.8", "h-67.2" ] ],
     [ "encoder1:GND", "nano:GND.1", "black", [ "v77.6", "h182.4", "v-67.2", "h86.4" ] ],
     [ "encoder1:VCC", "nano:5V", "red", [ "h9.6", "v77.2", "h163.2", "v-67.2", "h76.8" ] ],
-    [ "encoder1:SW", "nano:3", "gold", [ "h96", "v-86.3", "h134.4" ] ],
-    [ "encoder1:DT", "nano:4", "gold", [ "h86.4", "v-86.3", "h134.4" ] ],
-    [ "encoder1:CLK", "nano:5", "gold", [ "h76.8", "v-86.4", "h134.4" ] ],
     [ "oled1:SCL", "nano:A5", "blue", [ "v-28.8", "h0.3" ] ],
     [ "rtc1:GND", "nano:GND.1", "black", [ "h-86.4", "v384", "h384", "v-86.4", "h76.8" ] ],
     [ "rtc1:5V", "nano:5V", "red", [ "h-57.6", "v306.8", "h316.8", "v-48", "h96" ] ],
     [ "rtc1:SDA", "nano:A4", "green", [ "h124.8", "v-77.1", "h-240", "v470.4", "h441.6" ] ],
-    [ "rtc1:SCL", "nano:A5", "green", [ "h144", "v-105.8", "h-278.4", "v508.8", "h460.8" ] ]
+    [ "rtc1:SCL", "nano:A5", "green", [ "h144", "v-105.8", "h-278.4", "v508.8", "h460.8" ] ],
+    [ "encoder1:CLK", "nano:2", "green", [ "h9.6", "v-86.4", "h230.4" ] ],
+    [ "encoder1:DT", "nano:3", "green", [ "h28.8", "v-86.3", "h201.6" ] ],
+    [ "encoder1:SW", "nano:4", "green", [ "h38.4", "v-76.7", "h182.4" ] ],
+    [ "ring1:DIN", "nano:5", "green", [ "v9.6", "h-144", "v-67.2", "h-96", "v19.2" ] ]
   ],
   "dependencies": {}
 }

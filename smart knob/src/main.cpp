@@ -18,7 +18,7 @@ enum State {
 State currentState = STATE_IDLE;
 
 //neopixel definitions
-#define PIN_NEO_PIXEL 2  // Arduino pin that connects to NeoPixel
+#define PIN_NEO_PIXEL 5  // Arduino pin that connects to NeoPixel
 #define NUM_PIXELS 24    // The number of LEDs (pixels) on NeoPixel
 #define STUDY_PIXELS_PER_MINS 5 // number of mins which acts as one pixel in NeoPixel
 #define BREAK_PIXELS_PER_MINS 1
@@ -57,9 +57,9 @@ Adafruit_SSD1306 oled(SCREEN_WIDTH,SCREEN_HEIGHT,&Wire,-1); //oled module instan
 RTC_DS1307 rtc;
 
 // encoder definitions
-#define ENCODER_CLK 5 // for encoder CLK pin
-#define ENCODER_DT  4 //for encoder DT pin
-#define ENCODER_BUTTON 3 // for encoder SW pin
+#define ENCODER_CLK 2 // for encoder CLK pin
+#define ENCODER_DT  3 //for encoder DT pin
+#define ENCODER_BUTTON 4 // for encoder SW pin
 int lastClk = HIGH;
 long lastPos = 0;
 Encoder knob(ENCODER_DT, ENCODER_CLK );
