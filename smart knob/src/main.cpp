@@ -6,19 +6,36 @@
 #include <RTClib.h>
 #include <Encoder.h>
 
+//sate machine setup
+enum State {
+  STATE_IDLE,
+  STATE_CONFIG_STUDY,
+  STATE_CONFIG_BREAK,
+  STATE_CONFIG_CYCLE,
+  STATE_STUDY,
+  STATE_BREAK
+};
+State currentState = STATE_IDLE;
+
 //neopixel definitions
 #define PIN_NEO_PIXEL 2  // Arduino pin that connects to NeoPixel
 #define NUM_PIXELS 24    // The number of LEDs (pixels) on NeoPixel
 #define STUDY_PIXELS_PER_MINS 5 // number of mins which acts as one pixel in NeoPixel
 #define BREAK_PIXELS_PER_MINS 1
+#define CYCLE_PIXELS_PER_MINS 1
 #define MAX_STUDY_TIME 120
 #define MIN_STUDY_TIME 25
 #define MAX_BREAK_TIME 15
 #define MIN_BREAK_TIME 5
+#define MAX_CYCLE_TIME 5
+#define MIN_CYCLE_TIME 1
 #define STUDY_MIN_COLOR 250, 100, 0
 #define STUDY_ADDITIONAL_TIME 250, 143, 47
 #define BREAK_MIN_COLOR 0, 255, 255
 #define BREAK_ADDITIONAL_TIME 100, 250, 255
+#define CYCLE_MIN_COLOR 200, 0, 255
+#define CYCLE_ADDITIONAL_TIME 220, 100, 255
+
 
 Adafruit_NeoPixel NeoPixel(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800); //neopixel instance
 
@@ -81,91 +98,142 @@ const byte PROGMEM idle_frames[][288] = {
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,31,248,0,0,0,0,127,254,0,0,0,0,240,15,0,0,0,1,192,7,128,0,0,3,128,1,128,0,0,3,0,0,192,0,0,6,0,0,224,0,0,6,0,0,96,0,0,6,0,0,96,0,0,12,0,0,48,0,0,12,48,64,48,0,0,24,112,224,56,0,0,24,112,224,24,0,0,56,112,224,28,0,0,240,48,224,15,0,3,224,0,0,7,192,7,128,0,0,1,224,14,0,0,0,0,112,12,0,0,0,0,56,24,0,0,0,0,24,24,0,0,0,0,24,48,0,0,0,0,12,48,0,0,0,0,12,48,0,0,0,0,12,60,0,0,0,0,12,63,0,0,0,0,12,3,128,0,0,0,252,1,192,0,0,1,252,0,192,0,0,3,128,0,192,0,0,6,0,0,192,0,0,6,0,0,96,0,0,6,0,0,96,0,0,12,0,0,96,0,0,12,0,0,120,0,0,56,0,0,62,0,0,120,0,0,7,128,1,224,0,0,1,192,3,192,0,0,0,224,3,0,0,0,0,96,6,0,0,0,0,112,14,0,0,0,0,60,124,0,0,0,0,31,248,0,0,0,0,7,224,0,0}
 };
 
-
+bool button_pressed() {
+  return digitalRead(ENCODER_BUTTON) == LOW;}
 
 void idle_state(){
-  int frame = 0;
-  while (true){
-    oled.clearDisplay();
-    oled.drawBitmap(40, 8, idle_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-    oled.display();
-    frame = (frame + 1) % IDLE_FRAME_COUNT;
-    delay(FRAME_DELAY);
-    if (digitalRead(ENCODER_BUTTON) == LOW){
-      oled.clearDisplay();
-      oled.display();
-      break;
-    }
+   static int idle_frame = 0;
+  oled.clearDisplay();
+  oled.drawBitmap(40, 8, idle_frames[idle_frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+  oled.display();
+  idle_frame = (idle_frame + 1) % IDLE_FRAME_COUNT;
+  delay(FRAME_DELAY);
   }
+
+
+
+void config_study_state() {
+    static int pixels_to_show = -1;
+    static long lastPos = -1;  // -1 means uninitialized
+    
+    
+    if (pixels_to_show == -1) {
+        NeoPixel.clear();
+        pixels_to_show = floor(study_time / STUDY_PIXELS_PER_MINS) - 1;
+        for (int i = 0; i <= pixels_to_show; i++) {
+            NeoPixel.setPixelColor(i, NeoPixel.Color(STUDY_MIN_COLOR));
+            NeoPixel.show();
+            delay(200); 
+        }
+    }
+
+    
+    long newPos = knob.read() / 4; // 1 click per detent
+    
+    if (lastPos==-1){
+      lastPos=newPos;
+    }
+
+    if (newPos != lastPos) {
+        if (newPos > lastPos && study_time < MAX_STUDY_TIME) {
+            Serial.println("+5 mins");
+            study_time += STUDY_PIXELS_PER_MINS;
+            pixels_to_show++;
+            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
+            NeoPixel.show();
+        } else if (newPos < lastPos && study_time > MIN_STUDY_TIME) {
+            Serial.println("-5 mins");
+            study_time -= STUDY_PIXELS_PER_MINS;
+            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
+            pixels_to_show--;
+            NeoPixel.show();
+        }
+        lastPos = newPos;
+    }
+}
+void config_break_state() {
+    static int pixels_to_show = -1;
+    static long lastPos = -1;
+
+    
+    if (pixels_to_show == -1) {
+        NeoPixel.clear();
+        pixels_to_show = floor(break_time / BREAK_PIXELS_PER_MINS) - 1;
+        Serial.println("pixels to show: ");
+        Serial.println(pixels_to_show);
+        for (int i = 0; i <= pixels_to_show; i++) {
+            NeoPixel.setPixelColor(i, NeoPixel.Color(BREAK_MIN_COLOR));
+            NeoPixel.show();
+            delay(200); 
+        }
+    }
+
+    
+    long newPos = knob.read() / 4; // 1 click per detent
+
+    if (lastPos==-1){
+      lastPos=newPos;
+    }
+
+
+    if (newPos != lastPos) {
+        if (newPos > lastPos && break_time < MAX_BREAK_TIME) {
+            Serial.println("+1 min");
+            break_time += BREAK_PIXELS_PER_MINS;
+            pixels_to_show++;
+            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(BREAK_ADDITIONAL_TIME));
+            NeoPixel.show();
+        } else if (newPos < lastPos && break_time > MIN_BREAK_TIME) {
+            Serial.println("-1 min");
+            break_time -= BREAK_PIXELS_PER_MINS;
+            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
+            pixels_to_show--;
+            NeoPixel.show();
+        }
+        lastPos = newPos;
+    }
 }
 
+void config_cycle_state(){
+    static int pixels_to_show = -1;
+    static long lastPos = -1;
 
-void config_state(){
-  //for study state
-  NeoPixel.clear();
-  int pixels_to_show = floor(study_time/STUDY_PIXELS_PER_MINS)-1;  // 5 = (0->4)
-  for (int pixel = 0; pixel<=pixels_to_show; pixel++){
-    NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));
-    NeoPixel.show();
-    delay(200);}
-  while(true){
-    long newPos = knob.read()/4;  // /4 = one "click" per detent (depends on encoder)
-    if (newPos != lastPos) {
-      if (newPos > lastPos && study_time<MAX_STUDY_TIME) {
-        Serial.println("+5 mins");
-        study_time += 5;
-        Serial.println(study_time);
-        pixels_to_show++;
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
-        NeoPixel.show();
+    
+    if (pixels_to_show == -1) {
+        NeoPixel.clear();
+        pixels_to_show = floor(cycle / CYCLE_PIXELS_PER_MINS) - 1;
+        Serial.println("pixels to show: ");
+        Serial.println(pixels_to_show);
+        for (int i = 0; i <= pixels_to_show; i++) {
+            NeoPixel.setPixelColor(i, NeoPixel.Color(CYCLE_MIN_COLOR));
+            NeoPixel.show();
+            delay(200); 
         }
-      else if(newPos < lastPos && study_time>MIN_STUDY_TIME) {
-        Serial.println("-5 mins");
-        study_time -= 5;
-        Serial.println(study_time);
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
-        pixels_to_show--;
-        NeoPixel.show();
-        }
+    }
+
+    
+    long newPos = knob.read() / 4; // 1 click per detent
+
+    if (lastPos==-1){
       lastPos=newPos;
     }
-    if(digitalRead(ENCODER_BUTTON)==LOW){
-      break;}   
-  }
 
-  //for break state
-  NeoPixel.clear();
-  pixels_to_show = floor(break_time/BREAK_PIXELS_PER_MINS)-1;  // 5 = (0->4)
-  for (int pixel = 0; pixel<=pixels_to_show; pixel++){
-    NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
-    NeoPixel.show();
-    delay(200);}
-  while(true){
-    long newPos = knob.read()/4;  // /4 = one "click" per detent (depends on encoder)
     if (newPos != lastPos) {
-      if (newPos > lastPos && break_time<MAX_BREAK_TIME) {
-        Serial.println("+1 mins");
-        break_time += 1;
-        Serial.println(break_time);
-        pixels_to_show++;
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(BREAK_ADDITIONAL_TIME));
-        NeoPixel.show();
+        if (newPos > lastPos && cycle < MAX_CYCLE_TIME) {
+            Serial.println("+1 min");
+            cycle += CYCLE_PIXELS_PER_MINS;
+            pixels_to_show++;
+            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(CYCLE_ADDITIONAL_TIME));
+            NeoPixel.show();
+        } else if (newPos < lastPos && cycle > MIN_CYCLE_TIME) {
+            Serial.println("-1 min");
+            cycle -= CYCLE_PIXELS_PER_MINS;
+            NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
+            pixels_to_show--;
+            NeoPixel.show();
         }
-      else if(newPos < lastPos && break_time>MIN_BREAK_TIME) {
-        Serial.println("-1 mins");
-        break_time -= 1;
-        Serial.println(break_time);
-        NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
-        pixels_to_show--;
-        NeoPixel.show();
-        }
-      lastPos=newPos;
+        lastPos = newPos;
     }
-    if(digitalRead(ENCODER_BUTTON)==LOW){
-      break;}   
-  }
-
-
 }
 
 
@@ -202,6 +270,7 @@ void break_state(){
       last = now; 
       temp_break_time=temp_break_time-BREAK_PIXELS_PER_MINS;}
     }
+  cycle--;
 }
 
 void setup() {
@@ -229,13 +298,59 @@ void setup() {
 }
 
 void loop() {
-  if(digitalRead(ENCODER_BUTTON)==LOW){
-    idle_state();
-    config_state();
-    while (cycle>0){
+  switch (currentState) {
+    case STATE_IDLE:
+      idle_state();
+      if (button_pressed()) {
+        currentState = STATE_CONFIG_STUDY;
+        oled.clearDisplay();
+        oled.display();
+        Serial.println("Exiting idle state");
+      }
+      break;
+
+    case STATE_CONFIG_STUDY:
+      config_study_state();
+      if (button_pressed()) {
+        Serial.println("Exiting config study state");
+        currentState = STATE_CONFIG_BREAK;  
+      }
+      break;
+
+    case STATE_CONFIG_BREAK:
+      config_break_state();  
+      if (button_pressed()) {
+        Serial.println("Exiting config break state");
+        currentState = STATE_CONFIG_CYCLE;
+      }
+      break;
+    
+    case STATE_CONFIG_CYCLE:
+      config_cycle_state();  
+      if (button_pressed()) {
+        Serial.println("Exiting config cycle state");
+        currentState = STATE_STUDY;
+      }
+      break;
+
+    case STATE_STUDY:
       study_state();
+      currentState=STATE_BREAK;
+      if (cycle==1){
+        currentState=STATE_IDLE;
+        Serial.println("Exiting study state");
+      }
+      break;
+
+    case STATE_BREAK:
       break_state();
-    }}
-    study_time=MIN_STUDY_TIME;
-    break_time=MIN_BREAK_TIME;
+      if (cycle > 0) {
+        currentState = STATE_STUDY;
+        Serial.println("Exiting break state");
+      } else {
+        currentState = STATE_IDLE;
+        Serial.println("Exiting break state");
+      }
+      break;
   }
+}
