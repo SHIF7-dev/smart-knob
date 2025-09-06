@@ -151,6 +151,7 @@ void config_study_state() {
         lastPos = newPos;
     }
 }
+
 void config_break_state() {
     static int pixels_to_show = -1;
     static long lastPos = -1;
@@ -237,40 +238,74 @@ void config_cycle_state(){
 }
 
 
-void study_state(){
-  DateTime last = rtc.now();
-  int temp_study_time = study_time;
-  while(temp_study_time>0){
+void study_state() {
+    static DateTime last;
+    static int temp_study_time = -1;
+
+    
+    if (temp_study_time == -1) {
+        temp_study_time = study_time;  
+        last = rtc.now();
+    }
+
+    
     NeoPixel.clear();
-    int pixels_to_show= floor(temp_study_time/STUDY_PIXELS_PER_MINS);
-    for (int pixel =0; pixel<pixels_to_show; pixel++){
-      NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));}
+    int pixels_to_show = floor(temp_study_time / STUDY_PIXELS_PER_MINS);
+    for (int pixel = 0; pixel < pixels_to_show; pixel++) {
+        NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));
+    }
     NeoPixel.show();
+
     DateTime now = rtc.now();
     long diffSeconds = now.unixtime() - last.unixtime();
-    if (diffSeconds >= 5) {  // 300 seconds = 5 minutes
-      last = now; 
-      temp_study_time=temp_study_time-STUDY_PIXELS_PER_MINS;}
+    if (diffSeconds >= 5) {   
+        last = now;
+        temp_study_time -= STUDY_PIXELS_PER_MINS;
+    }
+
+    
+    if (temp_study_time <= 0) {
+        temp_study_time = -1;
+        NeoPixel.clear();
+        NeoPixel.show();       
+        currentState = STATE_BREAK; 
     }
 }
 
 
 void break_state(){
-  DateTime last = rtc.now();
-  int temp_break_time = break_time;
-  while(temp_break_time>0){
+    static DateTime last;
+    static int temp_break_time = -1;
+
+    
+    if (temp_break_time == -1) {
+        temp_break_time = break_time;
+        last = rtc.now();
+    }
+
+    
     NeoPixel.clear();
-    int pixels_to_show= floor(temp_break_time/BREAK_PIXELS_PER_MINS);
-    for (int pixel =0; pixel<pixels_to_show; pixel++){
-      NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));}
+    int pixels_to_show = floor(temp_break_time / BREAK_PIXELS_PER_MINS);
+    for (int pixel = 0; pixel < pixels_to_show; pixel++) {
+        NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
+    }
     NeoPixel.show();
+
+    
     DateTime now = rtc.now();
     long diffSeconds = now.unixtime() - last.unixtime();
-    if (diffSeconds >= 1) { 
-      last = now; 
-      temp_break_time=temp_break_time-BREAK_PIXELS_PER_MINS;}
+    if (diffSeconds >= 1) {   
+        last = now;
+        temp_break_time -= BREAK_PIXELS_PER_MINS;
     }
-  cycle--;
+
+    if (temp_break_time <= 0) {
+        temp_break_time = -1; 
+        cycle--;
+        NeoPixel.clear();
+        NeoPixel.show();
+        currentState = STATE_IDLE; 
+    }
 }
 
 void setup() {
@@ -288,11 +323,11 @@ void setup() {
     }
   }
   
-  NeoPixel.begin();  // INITIALIZE NeoPixel strip object (REQUIRED)
+  NeoPixel.begin();  
   Wire.begin();
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3c);
   rtc.begin();
-  pinMode(ENCODER_CLK, INPUT); // set pinmodes for encoder
+  pinMode(ENCODER_CLK, INPUT); 
   pinMode(ENCODER_DT, INPUT);
   pinMode(ENCODER_BUTTON, INPUT_PULLUP);
 }
@@ -335,22 +370,10 @@ void loop() {
 
     case STATE_STUDY:
       study_state();
-      currentState=STATE_BREAK;
-      if (cycle==1){
-        currentState=STATE_IDLE;
-        Serial.println("Exiting study state");
-      }
       break;
 
     case STATE_BREAK:
       break_state();
-      if (cycle > 0) {
-        currentState = STATE_STUDY;
-        Serial.println("Exiting break state");
-      } else {
-        currentState = STATE_IDLE;
-        Serial.println("Exiting break state");
-      }
       break;
   }
 }
