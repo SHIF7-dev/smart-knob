@@ -115,8 +115,7 @@ void idle_state(){
 void config_study_state() {
     static int pixels_to_show = -1;
     static long lastPos = -1;  // -1 means uninitialized
-    
-    
+
     if (pixels_to_show == -1) {
         NeoPixel.clear();
         pixels_to_show = floor(study_time / STUDY_PIXELS_PER_MINS) - 1;
@@ -141,6 +140,7 @@ void config_study_state() {
             pixels_to_show++;
             NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
             NeoPixel.show();
+
         } else if (newPos < lastPos && study_time > MIN_STUDY_TIME) {
             Serial.println("-5 mins");
             study_time -= STUDY_PIXELS_PER_MINS;
@@ -148,6 +148,7 @@ void config_study_state() {
             pixels_to_show--;
             NeoPixel.show();
         }
+
         lastPos = newPos;
     }
 }
