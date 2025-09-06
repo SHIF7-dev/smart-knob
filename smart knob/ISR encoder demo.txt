@@ -1,0 +1,112 @@
+
+#include <Adafruit_GFX.h>
+#include <U8glib.h>
+#include <Adafruit_SSD1306.h>
+
+#define CLK2 2
+#define DT2 3
+#define BTN 4
+
+volatile int study_time = 25;
+volatile int break_time = 15;
+volatile int cycle_time = 1;
+
+volatile int CLKstate;
+volatile int lastCLKstate;
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+String currentState="cycle";
+
+Adafruit_SSD1306 oled(SCREEN_WIDTH,SCREEN_HEIGHT,&Wire,-1); //oled module instance
+
+
+void draw(void) {
+  int paddleY = -1;
+  if (currentState=="study"){
+    noInterrupts();
+    paddleY = study_time;
+    interrupts();}
+  else if (currentState=="break"){
+    noInterrupts();
+    paddleY = break_time;
+    interrupts();}
+  else{
+    noInterrupts();
+    paddleY = cycle_time;
+    interrupts();}
+
+  oled.clearDisplay();
+  oled.setTextSize(1);              // normal text size
+  oled.setTextColor(SSD1306_WHITE); // white on black
+  oled.setCursor(0, 0);             // top-left corner
+
+  oled.print(currentState);
+  oled.print(" time: ");
+  oled.print(paddleY);
+
+  oled.display();
+}
+
+void updateEncoder() {
+  //read the state of clk
+
+  CLKstate = digitalRead(CLK2);
+
+  if (CLKstate != lastCLKstate) {
+    lastCLKstate = CLKstate;
+    byte data = digitalRead(DT2);
+    if (!data && CLKstate == LOW) {
+      if (currentState=="study"){
+        study_time = study_time + 5; //clockwise
+        Serial.println(" +5");
+        Serial.println("study_time");
+        Serial.println(study_time);}
+      else if (currentState=="break"){
+        break_time = break_time + 1; //clockwise
+        Serial.println(" +1");
+        Serial.println("break_time");
+        Serial.println(break_time);}
+      else{
+        cycle_time = cycle_time + 1; //clockwise
+        Serial.println(" +1");
+        Serial.println("cycle_time");
+        Serial.println(cycle_time);}
+      }
+
+
+     else if (data && CLKstate == LOW)  {
+      if (currentState=="study"){
+        study_time = study_time - 5; //clockwise
+        Serial.println(" -5");
+        Serial.println("study_time");
+        Serial.println(study_time);}
+      else if (currentState=="break"){
+        break_time = break_time - 1; //clockwise
+        Serial.println(" -1");
+        Serial.println("break_time");
+        Serial.println(break_time);}
+      else{
+        cycle_time = cycle_time - 1; //clockwise
+        Serial.println(" -1");
+        Serial.println("cycle_time");
+        Serial.println(cycle_time);}
+      }}
+    }
+
+
+void setup(void) {
+  Serial.begin(9600);
+  pinMode(CLK2, INPUT_PULLUP);
+  pinMode(DT2, INPUT_PULLUP);
+  pinMode(BTN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(CLK2), updateEncoder, CHANGE);
+  Wire.begin();
+  oled.begin(SSD1306_SWITCHCAPVCC, 0x3c);
+
+}  
+
+void loop(void) {
+  draw();
+}
