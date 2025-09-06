@@ -102,7 +102,7 @@ bool button_pressed() {
   return digitalRead(ENCODER_BUTTON) == LOW;}
 
 void idle_state(){
-   static int idle_frame = 0;
+  static int idle_frame = 0;
   oled.clearDisplay();
   oled.drawBitmap(40, 8, idle_frames[idle_frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
   oled.display();
@@ -114,11 +114,14 @@ void idle_state(){
 
 void config_study_state() {
     static int pixels_to_show = -1;
-    static long lastPos = -1;  // -1 means uninitialized
+    static long lastPos = -1;
 
+    
     if (pixels_to_show == -1) {
         NeoPixel.clear();
         pixels_to_show = floor(study_time / STUDY_PIXELS_PER_MINS) - 1;
+        Serial.println("pixels to show: ");
+        Serial.println(pixels_to_show);
         for (int i = 0; i <= pixels_to_show; i++) {
             NeoPixel.setPixelColor(i, NeoPixel.Color(STUDY_MIN_COLOR));
             NeoPixel.show();
@@ -128,30 +131,33 @@ void config_study_state() {
 
     
     long newPos = knob.read() / 4; // 1 click per detent
-    
+
     if (lastPos==-1){
       lastPos=newPos;
     }
 
+
     if (newPos != lastPos) {
         if (newPos > lastPos && study_time < MAX_STUDY_TIME) {
-            Serial.println("+5 mins");
+            Serial.println("+5 min");
             study_time += STUDY_PIXELS_PER_MINS;
+            Serial.println(study_time);
             pixels_to_show++;
             NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
             NeoPixel.show();
-
         } else if (newPos < lastPos && study_time > MIN_STUDY_TIME) {
-            Serial.println("-5 mins");
+            Serial.println("-5 min");
             study_time -= STUDY_PIXELS_PER_MINS;
+            Serial.println(study_time);
             NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
             pixels_to_show--;
             NeoPixel.show();
         }
-
         lastPos = newPos;
     }
 }
+
+
 
 void config_break_state() {
     static int pixels_to_show = -1;
@@ -182,12 +188,14 @@ void config_break_state() {
         if (newPos > lastPos && break_time < MAX_BREAK_TIME) {
             Serial.println("+1 min");
             break_time += BREAK_PIXELS_PER_MINS;
+            Serial.println(break_time);
             pixels_to_show++;
             NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(BREAK_ADDITIONAL_TIME));
             NeoPixel.show();
         } else if (newPos < lastPos && break_time > MIN_BREAK_TIME) {
             Serial.println("-1 min");
             break_time -= BREAK_PIXELS_PER_MINS;
+            Serial.println(break_time);
             NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0, 0, 0));
             pixels_to_show--;
             NeoPixel.show();
