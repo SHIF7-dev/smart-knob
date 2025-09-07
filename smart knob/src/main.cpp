@@ -5,6 +5,8 @@
 #include <Wire.h> //this is for I2C. SPI.h for SPI'
 #include <RTClib.h>
 #include <Encoder.h>
+#include <Fonts/Picopixel.h>
+#include <Fonts/Org_01.h>
 
 //sate machine setup
 enum State {
@@ -32,7 +34,7 @@ State currentState = STATE_IDLE;
 #define MIN_CYCLE_TIME 1
 #define STUDY_MIN_COLOR 250, 100, 0
 #define STUDY_ADDITIONAL_TIME 252, 143, 71
-#define BREAK_MIN_COLOR 0, 255, 255
+#define BREAK_MIN_COLOR 5, 211, 252
 #define BREAK_ADDITIONAL_TIME 100, 250, 255
 #define CYCLE_MIN_COLOR 200, 0, 255
 #define CYCLE_ADDITIONAL_TIME 220, 100, 255
@@ -102,14 +104,56 @@ const byte PROGMEM idle_frames[][288] = {
 bool button_pressed() {
   return digitalRead(ENCODER_BUTTON) == LOW;}
 
-void idle_state(){
-  static int idle_frame = 0;
-  oled.clearDisplay();
-  oled.drawBitmap(40, 8, idle_frames[idle_frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-  oled.display();
-  idle_frame = (idle_frame + 1) % IDLE_FRAME_COUNT;
-  delay(FRAME_DELAY);
+void idle_state() {
+  static unsigned long lastUpdate = 0;
+  unsigned long nowMillis = millis();
+
+  if (nowMillis - lastUpdate >= 500) {   // update every 0.5s
+    lastUpdate = nowMillis;
+
+    DateTime now = rtc.now();  // Read current time from RTC
+
+    int displayHour = now.hour();
+    String ampm = "AM";
+
+    if (displayHour == 0) displayHour = 12;           // Midnight
+    else if (displayHour >= 12) {                     // PM hours
+      ampm = "PM";
+      if (displayHour > 12) displayHour -= 12;
+    }
+
+    oled.clearDisplay();
+
+    // Big clock (hours and minutes)
+    oled.setTextSize(2);
+    oled.setTextColor(SSD1306_WHITE);
+    oled.setCursor(15, 10);
+    if (displayHour < 10) oled.print("0");
+    oled.print(displayHour);
+    oled.print(":");
+    if (now.minute() < 10) oled.print("0");
+    oled.print(now.minute());
+
+    // AM/PM next to clock
+    oled.setTextSize(1);
+    oled.setCursor(90, 16);  // Adjust X, Y for positioning
+    oled.print(ampm);
+
+    // Date below
+    oled.setTextSize(1);
+    oled.setCursor(20, 40);
+    if (now.day() < 10) oled.print("0");
+    oled.print(now.day());
+    oled.print("/");
+    if (now.month() < 10) oled.print("0");
+    oled.print(now.month());
+    oled.print("/");
+    oled.print(now.year());
+
+    oled.display();
   }
+}
+
 
 void updateEncoder() {
 
@@ -322,6 +366,7 @@ void study_state() {
     static DateTime last;
     static int temp_study_time = -1;
 
+
     
     if (temp_study_time == -1) {
         temp_study_time = study_time;  
@@ -332,7 +377,11 @@ void study_state() {
     NeoPixel.clear();
     int pixels_to_show = floor(temp_study_time / STUDY_PIXELS_PER_MINS);
     for (int pixel = 0; pixel < pixels_to_show; pixel++) {
-        NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));
+        if (pixel<= floor(MIN_STUDY_TIME / STUDY_PIXELS_PER_MINS)-1){
+          NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));
+          continue;
+        }
+        NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
     }
     NeoPixel.show();
 
@@ -367,6 +416,10 @@ void break_state(){
     NeoPixel.clear();
     int pixels_to_show = floor(temp_break_time / BREAK_PIXELS_PER_MINS);
     for (int pixel = 0; pixel < pixels_to_show; pixel++) {
+        if (pixel<= floor(MIN_BREAK_TIME / BREAK_PIXELS_PER_MINS)-1){
+          NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
+          continue;
+        }
         NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
     }
     NeoPixel.show();
@@ -399,6 +452,7 @@ void setup() {
   pinMode(ENCODER_DT, INPUT_PULLUP);
   pinMode(ENCODER_BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(ENCODER_CLK), updateEncoder, CHANGE);
+  //oled.setFont(&Org_01);
 }
 
 void loop() {
