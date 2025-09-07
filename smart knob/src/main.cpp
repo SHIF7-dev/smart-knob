@@ -113,59 +113,55 @@ void idle_state() {
   static unsigned long lastUpdate = 0;
   unsigned long nowMillis = millis();
 
+  oled.ssd1306_command(SSD1306_SETCONTRAST);
+  oled.ssd1306_command(0x7F);
+
+  NeoPixel.clear();
+  NeoPixel.show();
+
   if (nowMillis - lastUpdate >= 500) {   // update every 0.5s
     lastUpdate = nowMillis;
 
-    DateTime now = rtc.now();  // Read current time from RTC
+    DateTime now = rtc.now();
 
-    int displayHour = now.hour();
-    String ampm = "AM";
+    char left[3], right[3];
+    int xLeft = 1; 
+    int xRight = 73;
 
-    if (displayHour == 0) displayHour = 12;           // Midnight
-    else if (displayHour >= 12) {                     // PM hours
-      ampm = "PM";
-      if (displayHour > 12) displayHour -= 12;
+    int displayHour = now.hour() % 12;
+    if (displayHour == 0) displayHour = 12; // handle midnight / noon
+    int minutes = now.minute();
+
+    sprintf(left, "%02d", displayHour);
+    sprintf(right, "%02d", minutes);
+
+    // Adjust position if first digit is '1'
+    if (left[0] == '1') {
+        xLeft += 20;
     }
-
-    NeoPixel.clear();
-    NeoPixel.show();
+    if (right[0] == '1') {
+        xRight += 20;
+    }
 
     oled.clearDisplay();
 
-    // Big clock (hours and minutes)
-    oled.setTextSize(5.5);
-    oled.setTextColor(SSD1306_WHITE);
+    // Big clock digits
+    oled.setTextSize(5);
     oled.setFont(&Org_01);
-    oled.setCursor(2, 20);
-    if (displayHour < 10) oled.print("0");
-    oled.print(displayHour);
-    oled.setTextSize(2);
-    oled.setCursor(63,15);
-    oled.print(":");
-    oled.setCursor(71,20);
-    oled.setTextSize(5.5);
-    if (now.minute() < 10) oled.print("0");
-    oled.print(now.minute());
-    
+    oled.setTextColor(SSD1306_WHITE);
 
-    // AM/PM next to clock
-    // oled.setTextSize(1);
-    // oled.setCursor(90, 16);  // Adjust X, Y for positioning
-    // oled.print(ampm);
+    oled.setCursor(xLeft, 36);
+    oled.print(left);
 
-    // Date below
-    // oled.setTextSize(1);
-    // oled.setCursor(35, 35);
-    // if (now.day() < 10) oled.print("0");
-    // oled.print(now.day());
-    // oled.print("-");
-    // if (now.month() < 10) oled.print("0");
-    // oled.print(now.month());
-    // oled.print("-");
-    // oled.print(now.year());
+    oled.setCursor(xRight, 36);
+    oled.print(right);
 
+    // Separator dots
+    oled.fillRect(62, 21, 5, 5,  SSD1306_WHITE);
+    oled.fillRect(62, 31, 5, 5, SSD1306_WHITE);
     oled.display();
-  }
+}
+
 }
 
 
@@ -221,6 +217,7 @@ void config_study_state(bool reset=false){
   if (reset) {
     pixels_to_show = -1;
     return;   // reset on demand
+
   }
 
   if (pixels_to_show == -1) {
