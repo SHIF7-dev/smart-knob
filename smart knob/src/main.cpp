@@ -136,12 +136,18 @@ void idle_state() {
     sprintf(right, "%02d", minutes);
 
     // Adjust position if first digit is '1'
-    if (left[0] == '1') {
+    if (left[0] == '1' && left[1] == '1'){
+      xLeft +=20;
+    }
+
+    if (left[0] == '1' && left[1] != '1') {
         xLeft += 20;
     }
-    if (right[0] == '1') {
-        xRight += 20;
+
+    if (left[0] != '1' && left[1] == '1') {
+        xLeft += 20;
     }
+    
 
     oled.clearDisplay();
 
@@ -271,6 +277,41 @@ void config_study_state(bool reset=false){
       oled.print(study_time);
       oled.display();
   }
+  // else if ((floor(study_time / STUDY_PIXELS_PER_MINS)-1)-pixels_to_show>1){ 
+  //     int end = floor(study_time / STUDY_PIXELS_PER_MINS)-1; 
+  //     for (int i=pixels_to_show; i<=end;i++){
+  //       pixels_to_show++;
+  //       NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
+  //       }
+
+  //     NeoPixel.show();
+
+  //     oled.clearDisplay();
+  //     oled.setCursor(0,0);
+  //     oled.setTextSize(1);
+  //     oled.setTextColor(WHITE);
+  //     oled.print("Study Time: ");
+  //     oled.print(study_time);
+  //     oled.display();
+  // }
+
+  // else if ((floor(study_time / STUDY_PIXELS_PER_MINS)-1)-pixels_to_show<1){ 
+  //     int end = floor(study_time / STUDY_PIXELS_PER_MINS)-1; 
+  //     for (int i=pixels_to_show; i>=end;i--){
+  //       NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
+  //       pixels_to_show--;
+  //       }
+
+  //     NeoPixel.show();
+
+  //     oled.clearDisplay();
+  //     oled.setCursor(0,0);
+  //     oled.setTextSize(1);
+  //     oled.setTextColor(WHITE);
+  //     oled.print("Study Time: ");
+  //     oled.print(study_time);
+  //     oled.display();
+  // }
 
 }
 
