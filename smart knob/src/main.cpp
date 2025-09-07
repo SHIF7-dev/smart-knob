@@ -122,6 +122,9 @@ void idle_state() {
       if (displayHour > 12) displayHour -= 12;
     }
 
+    NeoPixel.clear();
+    NeoPixel.show();
+
     oled.clearDisplay();
 
     // Big clock (hours and minutes)
@@ -201,8 +204,13 @@ void updateEncoder() {
     }
     }
 
-void config_study_state(){
+void config_study_state(bool reset=false){
   static int pixels_to_show = -1;
+
+  if (reset) {
+    pixels_to_show = -1;
+    return;   // reset on demand
+  }
 
   if (pixels_to_show == -1) {
         NeoPixel.clear();
@@ -210,7 +218,11 @@ void config_study_state(){
         Serial.println("pixels to show: ");
         Serial.println(pixels_to_show);
         for (int i = 0; i <= pixels_to_show; i++) {
-            NeoPixel.setPixelColor(i, NeoPixel.Color(STUDY_MIN_COLOR));
+            if (i<= floor(MIN_STUDY_TIME / STUDY_PIXELS_PER_MINS)-1){
+              NeoPixel.setPixelColor(i, NeoPixel.Color(STUDY_MIN_COLOR));}
+            else{
+              NeoPixel.setPixelColor(i, NeoPixel.Color(STUDY_ADDITIONAL_TIME));}
+              
             NeoPixel.show();
             delay(200); 
         }
@@ -254,8 +266,13 @@ void config_study_state(){
 
 }
 
-void config_break_state(){
+void config_break_state(bool reset=false){
   static int pixels_to_show = -1;
+
+  if (reset) {
+    pixels_to_show = -1;   // reset on demand
+    return;
+  }
 
   if (pixels_to_show == -1) {
         NeoPixel.clear();
@@ -263,7 +280,11 @@ void config_break_state(){
         Serial.println("pixels to show: ");
         Serial.println(pixels_to_show);
         for (int i = 0; i <= pixels_to_show; i++) {
-            NeoPixel.setPixelColor(i, NeoPixel.Color(BREAK_MIN_COLOR));
+            if (i<= floor(MIN_BREAK_TIME / BREAK_PIXELS_PER_MINS)-1){
+              NeoPixel.setPixelColor(i, NeoPixel.Color(BREAK_MIN_COLOR));}
+            else{
+            NeoPixel.setPixelColor(i, NeoPixel.Color(BREAK_ADDITIONAL_TIME));}
+
             NeoPixel.show();
             delay(200); 
         }
@@ -307,8 +328,13 @@ void config_break_state(){
 
 }
 
-void config_cycle_state(){
+void config_cycle_state(bool reset=false){
   static int pixels_to_show = -1;
+
+  if (reset) {
+    pixels_to_show = -1; 
+    return;
+  }
 
   if (pixels_to_show == -1) {
         NeoPixel.clear();
@@ -316,7 +342,11 @@ void config_cycle_state(){
         Serial.println("pixels to show: ");
         Serial.println(pixels_to_show);
         for (int i = 0; i <= pixels_to_show; i++) {
-            NeoPixel.setPixelColor(i, NeoPixel.Color(CYCLE_MIN_COLOR));
+            if (i<= floor(MIN_CYCLE_TIME / CYCLE_PIXELS_PER_MINS)-1){
+              NeoPixel.setPixelColor(i, NeoPixel.Color(CYCLE_MIN_COLOR));}
+            else{
+            NeoPixel.setPixelColor(i, NeoPixel.Color(CYCLE_ADDITIONAL_TIME));}
+
             NeoPixel.show();
             delay(200); 
         }
@@ -366,10 +396,19 @@ void study_state() {
     static DateTime last;
     static int temp_study_time = -1;
 
-
-    
     if (temp_study_time == -1) {
-        temp_study_time = study_time;  
+        temp_study_time = study_time;
+        NeoPixel.clear();
+        int pixels_to_show = floor(temp_study_time / STUDY_PIXELS_PER_MINS);
+        for (int pixel = 0; pixel < pixels_to_show; pixel++) {
+            if (pixel<= floor(MIN_STUDY_TIME / STUDY_PIXELS_PER_MINS)-1){
+              NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));}
+            else{
+              NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_ADDITIONAL_TIME));}
+
+            NeoPixel.show();
+            delay(200);
+        }  
         last = rtc.now();
     }
 
@@ -378,12 +417,14 @@ void study_state() {
     int pixels_to_show = floor(temp_study_time / STUDY_PIXELS_PER_MINS);
     for (int pixel = 0; pixel < pixels_to_show; pixel++) {
         if (pixel<= floor(MIN_STUDY_TIME / STUDY_PIXELS_PER_MINS)-1){
-          NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));
-          continue;
-        }
-        NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
+          NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_MIN_COLOR));}
+        else{
+          NeoPixel.setPixelColor(pixel, NeoPixel.Color(STUDY_ADDITIONAL_TIME));}
+
+        
     }
     NeoPixel.show();
+    
 
     DateTime now = rtc.now();
     long diffSeconds = now.unixtime() - last.unixtime();
@@ -397,6 +438,7 @@ void study_state() {
         temp_study_time = -1;
         NeoPixel.clear();
         NeoPixel.show();       
+        delay(100);
         currentState = STATE_BREAK; 
     }
 }
@@ -405,11 +447,23 @@ void study_state() {
 void break_state(){
     static DateTime last;
     static int temp_break_time = -1;
+    static int temp_cycle = cycle;
 
     
     if (temp_break_time == -1) {
         temp_break_time = break_time;
+        NeoPixel.clear();
+        int pixels_to_show = floor(temp_break_time / BREAK_PIXELS_PER_MINS);
+        for (int pixel = 0; pixel < pixels_to_show; pixel++) {
+            if (pixel<= floor(MIN_BREAK_TIME / BREAK_PIXELS_PER_MINS)-1){
+              NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));}
+            else{
+              NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));}
+              NeoPixel.show();
+              delay(200);
+        }
         last = rtc.now();
+        
     }
 
     
@@ -417,12 +471,12 @@ void break_state(){
     int pixels_to_show = floor(temp_break_time / BREAK_PIXELS_PER_MINS);
     for (int pixel = 0; pixel < pixels_to_show; pixel++) {
         if (pixel<= floor(MIN_BREAK_TIME / BREAK_PIXELS_PER_MINS)-1){
-          NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
-          continue;
-        }
-        NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));
+          NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));}
+        else{
+          NeoPixel.setPixelColor(pixel, NeoPixel.Color(BREAK_MIN_COLOR));}  
     }
     NeoPixel.show();
+    
 
     
     DateTime now = rtc.now();
@@ -434,11 +488,29 @@ void break_state(){
 
     if (temp_break_time <= 0) {
         temp_break_time = -1; 
-        cycle--;
         NeoPixel.clear();
         NeoPixel.show();
-        currentState = STATE_IDLE; 
+        temp_cycle--;
+        if (temp_cycle==0){
+          temp_cycle=cycle;
+
+          for (int i=0; i<NUM_PIXELS; i++){
+            NeoPixel.setPixelColor(i, NeoPixel.Color(CYCLE_MIN_COLOR));
+            NeoPixel.show();
+            delay(100);
+          }
+
+          
+          oled.clearDisplay();
+          oled.print("Congradulations!");
+          delay(1000);
+          currentState=STATE_IDLE;
+        }
+        else if(temp_cycle>0){
+          delay(1000);
+          currentState = STATE_STUDY;
     }
+  }
 }
 
 void setup() {
@@ -473,6 +545,7 @@ void loop() {
       config_study_state();
       if (button_pressed()) {
         //Serial.println("Exiting config study state");
+        config_study_state(true);
         currentState = STATE_CONFIG_BREAK;  
       }
       break;
@@ -481,6 +554,7 @@ void loop() {
       config_break_state();  
       if (button_pressed()) {
         //Serial.println("Exiting config break state");
+        config_break_state(true);
         currentState = STATE_CONFIG_CYCLE;
       }
       break;
@@ -488,8 +562,7 @@ void loop() {
     case STATE_CONFIG_CYCLE:
       config_cycle_state();  
       if (button_pressed()) {
-        oled.clearDisplay();
-        oled.display();
+        config_cycle_state(true);
         //Serial.println("Exiting config cycle state");
         currentState = STATE_STUDY;
       }
