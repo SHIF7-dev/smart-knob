@@ -44,7 +44,7 @@ Adafruit_NeoPixel NeoPixel(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800); //n
 
 volatile int study_time = MIN_STUDY_TIME; //will be in minutes. Need to take input from user. 
 int break_time = MIN_BREAK_TIME;
-int cycle = 2;
+int cycle = MIN_CYCLE_TIME;
 
 //oled module definitions
 #define SCREEN_WIDTH 128
