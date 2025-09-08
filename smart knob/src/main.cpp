@@ -71,6 +71,17 @@ volatile int CLKstate;
 volatile int lastCLKstate;
 
 // returns: 0 = no event, 1 = short press, 2 = long press
+
+void config_study_state(bool reset=false);
+void config_break_state(bool reset=false);
+void config_cycle_state(bool reset=false);
+void study_state(bool reset=false);
+void break_state(bool reset=false);
+
+bool isButtonHeld(){
+  return digitalRead(ENCODER_BUTTON)==LOW;
+}
+
 int checkButton(unsigned long longPressDuration = 2000) {
   static bool lastButtonState = HIGH;     // last physical button state
   static unsigned long pressedTime = 0;   // time when button was pressed
@@ -106,6 +117,60 @@ int checkButton(unsigned long longPressDuration = 2000) {
 
   lastButtonState = buttonState;
   return 0; // nothing happened
+}
+
+
+void updateEncoder() {
+   // lockout flag
+  CLKstate = digitalRead(ENCODER_CLK);
+
+  if (CLKstate != lastCLKstate) {
+    lastCLKstate = CLKstate;
+    byte data = digitalRead(ENCODER_DT);
+
+    bool clockwise = (data && CLKstate == LOW);
+    bool counterClockwise = (!data && CLKstate == LOW);
+
+    // --- Handle hold+rotate for state navigation ---
+    if (isButtonHeld()) {
+        // only allow *one* rotation per hold
+        if (clockwise) {
+          if (currentState == STATE_IDLE) currentState = STATE_CONFIG_STUDY;
+          else if (currentState == STATE_CONFIG_STUDY) {config_study_state(true); currentState = STATE_CONFIG_BREAK;} 
+          else if (currentState == STATE_CONFIG_BREAK) {config_break_state(true); currentState = STATE_CONFIG_CYCLE;}
+        }
+        else if (counterClockwise) {
+          if (currentState == STATE_CONFIG_CYCLE) {config_cycle_state(true); currentState = STATE_CONFIG_BREAK;}
+          else if (currentState == STATE_CONFIG_BREAK) {config_break_state(true); currentState = STATE_CONFIG_STUDY;}
+          else if (currentState == STATE_CONFIG_STUDY) {config_study_state(true); currentState = STATE_IDLE;}
+        }
+      return; // skip normal time changes
+    } 
+    
+    // --- Normal encoder behavior when not held ---
+    if (counterClockwise) {
+      if (currentState == STATE_CONFIG_STUDY && study_time >= (MIN_STUDY_TIME+STUDY_PIXELS_PER_MINS)) {
+        study_time -= STUDY_PIXELS_PER_MINS;
+      }
+      else if (currentState == STATE_CONFIG_BREAK && break_time >= (MIN_BREAK_TIME+BREAK_PIXELS_PER_MINS)) {
+        break_time -= BREAK_PIXELS_PER_MINS;
+      }
+      else if (currentState == STATE_CONFIG_CYCLE && cycle >= (MIN_CYCLE_TIME+CYCLE_PIXELS_PER_MINS)) {
+        cycle -= CYCLE_PIXELS_PER_MINS;
+      }
+    }
+    else if (clockwise) {
+      if (currentState == STATE_CONFIG_STUDY && study_time <= (MAX_STUDY_TIME-STUDY_PIXELS_PER_MINS)) {
+        study_time += STUDY_PIXELS_PER_MINS;
+      }
+      else if (currentState == STATE_CONFIG_BREAK && break_time <= (MAX_BREAK_TIME-BREAK_PIXELS_PER_MINS)) {
+        break_time += BREAK_PIXELS_PER_MINS;
+      }
+      else if (currentState == STATE_CONFIG_CYCLE && cycle <= (MAX_CYCLE_TIME-CYCLE_PIXELS_PER_MINS)) {
+        cycle += CYCLE_PIXELS_PER_MINS;
+      }
+    }
+  }
 }
 
 
@@ -170,53 +235,6 @@ void idle_state() {
 
 }
 
-
-void updateEncoder() {
-
-  CLKstate = digitalRead(ENCODER_CLK);
-
-  if (CLKstate != lastCLKstate) {
-    lastCLKstate = CLKstate;
-    byte data = digitalRead(ENCODER_DT);
-    if (!data && CLKstate == LOW) {
-      if (currentState==STATE_CONFIG_STUDY && study_time>=(MIN_STUDY_TIME+STUDY_PIXELS_PER_MINS)){
-        study_time = study_time - STUDY_PIXELS_PER_MINS; //counterclockwise
-        Serial.println(-STUDY_PIXELS_PER_MINS);
-        Serial.println("Study Time: ");
-        Serial.println(study_time);}
-      else if (currentState==STATE_CONFIG_BREAK && break_time>=(MIN_BREAK_TIME+BREAK_PIXELS_PER_MINS)){
-        break_time = break_time - BREAK_PIXELS_PER_MINS; //counterclockwise
-        Serial.println(-BREAK_PIXELS_PER_MINS);
-        Serial.println("Break Time: ");
-        Serial.println(break_time);}
-      else if (currentState==STATE_CONFIG_CYCLE && cycle>=(MIN_CYCLE_TIME+CYCLE_PIXELS_PER_MINS)){
-        cycle = cycle - CYCLE_PIXELS_PER_MINS; //counterclockwise
-        Serial.println(-CYCLE_PIXELS_PER_MINS);
-        Serial.println("Cycles: ");
-        Serial.println(cycle);}
-      }
-
-
-     else if (data && CLKstate == LOW)  {
-      if (currentState==STATE_CONFIG_STUDY && study_time<=(MAX_STUDY_TIME-STUDY_PIXELS_PER_MINS)){
-        study_time = study_time + STUDY_PIXELS_PER_MINS; //clockwise
-        Serial.println(STUDY_PIXELS_PER_MINS);
-        Serial.println("Study_Time");
-        Serial.println(study_time);}
-      else if (currentState==STATE_CONFIG_BREAK && break_time<=(MAX_BREAK_TIME-BREAK_PIXELS_PER_MINS)){
-        break_time = break_time + BREAK_PIXELS_PER_MINS; //clockwise
-        Serial.println(BREAK_PIXELS_PER_MINS);
-        Serial.println("Break_Time");
-        Serial.println(break_time);}
-      else if (currentState==STATE_CONFIG_CYCLE && cycle<=(MAX_CYCLE_TIME-CYCLE_PIXELS_PER_MINS)){
-        cycle = cycle + CYCLE_PIXELS_PER_MINS; //clockwise
-        Serial.println(CYCLE_PIXELS_PER_MINS);
-        Serial.println("Cycles: ");
-        Serial.println(cycle);}
-      }
-    }
-    }
-
 void config_study_state(bool reset=false){
   static int pixels_to_show = -1;
 
@@ -277,41 +295,6 @@ void config_study_state(bool reset=false){
       oled.print(study_time);
       oled.display();
   }
-  // else if ((floor(study_time / STUDY_PIXELS_PER_MINS)-1)-pixels_to_show>1){ 
-  //     int end = floor(study_time / STUDY_PIXELS_PER_MINS)-1; 
-  //     for (int i=pixels_to_show; i<=end;i++){
-  //       pixels_to_show++;
-  //       NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(STUDY_ADDITIONAL_TIME));
-  //       }
-
-  //     NeoPixel.show();
-
-  //     oled.clearDisplay();
-  //     oled.setCursor(0,0);
-  //     oled.setTextSize(1);
-  //     oled.setTextColor(WHITE);
-  //     oled.print("Study Time: ");
-  //     oled.print(study_time);
-  //     oled.display();
-  // }
-
-  // else if ((floor(study_time / STUDY_PIXELS_PER_MINS)-1)-pixels_to_show<1){ 
-  //     int end = floor(study_time / STUDY_PIXELS_PER_MINS)-1; 
-  //     for (int i=pixels_to_show; i>=end;i--){
-  //       NeoPixel.setPixelColor(pixels_to_show, NeoPixel.Color(0,0,0));
-  //       pixels_to_show--;
-  //       }
-
-  //     NeoPixel.show();
-
-  //     oled.clearDisplay();
-  //     oled.setCursor(0,0);
-  //     oled.setTextSize(1);
-  //     oled.setTextColor(WHITE);
-  //     oled.print("Study Time: ");
-  //     oled.print(study_time);
-  //     oled.display();
-  // }
 
 }
 
@@ -626,79 +609,49 @@ void setup() {
 
 void loop() {
 
-int buttonEvent = checkButton(); 
-if (currentState == STATE_STUDY || currentState == STATE_BREAK) {
-    if (buttonEvent == 1) {   // short press
-        paused = !paused;     // toggle pause
-    }
-}
-
-switch (currentState) {
-  case STATE_IDLE:
-    idle_state();
-    if (buttonEvent == 2) {
-      currentState = STATE_CONFIG_STUDY;
-      oled.clearDisplay();
-      oled.display();
-    }
-    else if (buttonEvent == 1) {
-      // study_time = MIN_STUDY_TIME;
-      // break_time = MIN_BREAK_TIME;
-      currentState = STATE_CONFIG_CYCLE;
-    }
-    break;
-
-  case STATE_CONFIG_STUDY:
-    config_study_state();
-    if (buttonEvent == 1) {
-      config_study_state(true);
-      currentState = STATE_CONFIG_BREAK;
-    }
-    else if (buttonEvent == 2) {
-      config_study_state(true);
-      currentState = STATE_IDLE;
-    }
-    break;
-
-  case STATE_CONFIG_BREAK:
-    config_break_state();  
-    if (buttonEvent == 1) {
-      config_break_state(true);
-      currentState = STATE_CONFIG_CYCLE;
-    }
-    else if (buttonEvent == 2) {
-      config_break_state(true);
-      currentState = STATE_IDLE;
-    }
-    break;
-
-  case STATE_CONFIG_CYCLE:
-    config_cycle_state();  
-    if (buttonEvent == 1) {
-      config_cycle_state(true);
-      currentState = STATE_STUDY;
-    }
-    else if (buttonEvent == 2) {
-      config_cycle_state(true);
-      currentState = STATE_IDLE;
-    }
-    break;
-
-  case STATE_STUDY:
-    study_state();
-    if (buttonEvent == 2) {
-      study_state(true);
-      currentState = STATE_IDLE;
-    }
-    break;
-
-  case STATE_BREAK:
-    break_state();
-    if (buttonEvent == 2) {
-      break_state(true);
-      currentState = STATE_IDLE;
-    }
-    break;
-
+  int buttonEvent = checkButton(); 
+  if (currentState == STATE_STUDY || currentState == STATE_BREAK) {
+      if (buttonEvent == 1) {   // short press
+          paused = !paused;     // toggle pause
+      }
   }
+
+  switch (currentState) {
+    case STATE_IDLE:
+      idle_state();
+      break;
+
+    case STATE_CONFIG_STUDY:
+      config_study_state();
+      break;
+
+    case STATE_CONFIG_BREAK:
+      config_break_state(); 
+      break;
+
+    case STATE_CONFIG_CYCLE:
+      config_cycle_state();  
+      // if (buttonEvent == 1) {
+      //   config_cycle_state(true);
+      //   currentState = STATE_STUDY;
+      // }
+      break;
+
+    case STATE_STUDY:
+      study_state();
+      if (buttonEvent == 2) {
+        study_state(true);
+        currentState = STATE_IDLE;
+      }
+      break;
+
+    case STATE_BREAK:
+      break_state();
+      if (buttonEvent == 2) {
+        break_state(true);
+        currentState = STATE_IDLE;
+      }
+      break;
+
+    }
 }
