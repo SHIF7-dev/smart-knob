@@ -31,7 +31,7 @@ State previousState = STATE_IDLE;
 #define MIN_STUDY_TIME 25
 #define MAX_BREAK_TIME 15
 #define MIN_BREAK_TIME 5
-#define MAX_CYCLE_TIME 5
+#define MAX_CYCLE_TIME 4
 #define MIN_CYCLE_TIME 1
 #define STUDY_MIN_COLOR 250, 100, 0
 #define STUDY_ADDITIONAL_TIME 252, 143, 71
@@ -71,7 +71,7 @@ volatile int CLKstate;
 volatile int lastCLKstate;
 
 // returns: 0 = no event, 1 = short press, 2 = long press
-int checkButton(unsigned long longPressDuration = 3000) {
+int checkButton(unsigned long longPressDuration = 2000) {
   static bool lastButtonState = HIGH;     // last physical button state
   static unsigned long pressedTime = 0;   // time when button was pressed
   static bool longPressHandled = false;   // ensure only one long press event
@@ -209,7 +209,7 @@ void updateEncoder() {
         Serial.println("Break_Time");
         Serial.println(break_time);}
       else if (currentState==STATE_CONFIG_CYCLE && cycle<=(MAX_CYCLE_TIME-CYCLE_PIXELS_PER_MINS)){
-        cycle = cycle + 1; //clockwise
+        cycle = cycle + CYCLE_PIXELS_PER_MINS; //clockwise
         Serial.println(CYCLE_PIXELS_PER_MINS);
         Serial.println("Cycles: ");
         Serial.println(cycle);}
@@ -387,7 +387,7 @@ void config_cycle_state(bool reset=false){
 
   if (pixels_to_show == -1) {
         NeoPixel.clear();
-        pixels_to_show = floor(cycle / CYCLE_PIXELS_PER_MINS) - 1;
+        pixels_to_show = floor(cycle * CYCLE_PIXELS_PER_MINS) - 1;
         Serial.println("pixels to show: ");
         Serial.println(pixels_to_show);
         for (int i = 0; i <= pixels_to_show; i++) {
@@ -601,6 +601,9 @@ void break_state(bool reset=false){
         }
         else if(session<cycle){
           delay(100);
+          if  (session==MAX_CYCLE_TIME-1){
+            break_time=MAX_BREAK_TIME;
+          }
           session++;
           currentState = STATE_STUDY;
     }
@@ -623,7 +626,7 @@ void setup() {
 
 void loop() {
 
-int buttonEvent = checkButton();
+int buttonEvent = checkButton(); 
 if (currentState == STATE_STUDY || currentState == STATE_BREAK) {
     if (buttonEvent == 1) {   // short press
         paused = !paused;     // toggle pause
@@ -633,16 +636,15 @@ if (currentState == STATE_STUDY || currentState == STATE_BREAK) {
 switch (currentState) {
   case STATE_IDLE:
     idle_state();
-    if (buttonEvent == 1) {
+    if (buttonEvent == 2) {
       currentState = STATE_CONFIG_STUDY;
       oled.clearDisplay();
       oled.display();
     }
-    else if (buttonEvent == 2) {
-      study_time = MIN_STUDY_TIME;
-      break_time = MIN_BREAK_TIME;
-      cycle = MIN_CYCLE_TIME;
-      currentState = STATE_STUDY;
+    else if (buttonEvent == 1) {
+      // study_time = MIN_STUDY_TIME;
+      // break_time = MIN_BREAK_TIME;
+      currentState = STATE_CONFIG_CYCLE;
     }
     break;
 
